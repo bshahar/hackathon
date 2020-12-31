@@ -18,37 +18,46 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-while 1:
+while 1: #choose network to run on 
     time.sleep(0.0001)
     state_network = input("plese enter 1 if you want eth1 or 2 for eth2\n")
     if state_network == '1':
         my_ip = get_if_addr("eth1") 
-        my_host = '172.1.0'
+        eth = my_ip+"/16"   
         break
     elif state_network == '2':
-        my_ip = get_if_addr("eth2") 
-        my_host = '172.99.255.255'
+        my_ip = get_if_addr("eth2")
+        eth = my_ip+"/16" 
         break
     else:
         time.sleep(0.0001)
         pass
+
+host_broadcast = str(ipaddress.ip_network(eth,False).broadcast_address) #get host broadcast
+
+PORT_BROADCAST = 13117
+TIME_TO_SEND_BROADCAST = 10
+COOKIE = 0xfeedbeef
+TYPE = 0x2
+SERVER_PORT = 12000
+FORMAT = '!IBH'
+DURATION_TIME_REGISTER = 10
+DURATION_TIME_PLAY = 10
 
 record = 0
 
 while 1: #so the program will run forever
     time.sleep(1)
     def UDP_thread():
-        #my_ip= gethostbyname(gethostname())
         print(bcolors.UNDERLINE+bcolors.HEADER+ "Server started, listening on IP address " + my_ip+bcolors.ENDC)
         while 1:
             try:
-                serverPort = 12000
                 serverSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-                serverSocket.bind(('', serverPort))
-                broadcast = struct.pack('!IBH',0xfeedbeef,0x2,serverPort) #broadcast with ip over udp 
+                serverSocket.bind(('', SERVER_PORT))
+                broadcast = struct.pack(FORMAT,COOKIE,TYPE,SERVER_PORT) #broadcast with ip over udp 
                 serverSocket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-                for i in range (0, 10):
-                    serverSocket.sendto(broadcast, (my_host, 13117))
+                for i in range (0, TIME_TO_SEND_BROADCAST):
+                    serverSocket.sendto(broadcast, (host_broadcast, PORT_BROADCAST))
                     time.sleep(1)
                 break
             except:  
@@ -91,17 +100,15 @@ while 1: #so the program will run forever
                 pass
 
         def TCP_thread():
-            #my_ip= gethostbyname(gethostname())
-            serverPort = 12000
             tcpServer = socket(AF_INET, SOCK_STREAM) 
             tcpServer.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) 
-            tcpServer.bind((my_ip, serverPort)) 
+            tcpServer.bind((my_ip, SERVER_PORT)) 
             threads = [] 
             groups = {}
             list_conn = []
-            ten_second = time.time() + 10
+            duration = time.time() + DURATION_TIME_REGISTER
             tcpServer.settimeout(1)
-            while(time.time() < ten_second):
+            while(time.time() < duration):
                 time.sleep(0.0001)
                 tcpServer.listen(15) 
                 try:
@@ -135,7 +142,7 @@ while 1: #so the program will run forever
                     except:
                         pass
                 
-                time.sleep(10)
+                time.sleep(DURATION_TIME_PLAY)
                 #result of the game - winner / loser / tie
                 if len(group_2) != 0:
                     ret = ""
@@ -156,8 +163,8 @@ while 1: #so the program will run forever
                         list_win = print_list(group_2,groups)
                         if counter_group2 > record:
                             record = counter_group2
-                    avg_group1 = counter_group1/10
-                    avg_group2 = counter_group2/10
+                    avg_group1 = counter_group1/DURATION_TIME_PLAY
+                    avg_group2 = counter_group2/DURATION_TIME_PLAY
                     massege_game_over_1 = "Game over!\nGroup 1 typed in "+str(counter_group1)+" characters. Group 2 typed in "+str(counter_group2)+" characters.\n"+ret+"\n\nCongratulations to the winners:\n==\n"+list_win
                     massege_game_over_2 = "\nStatistical data:\nGroup 1 typed in "+str(avg_group1)+" about every second\nGroup 2 typed in "+str(avg_group2)+" about every second"
                     massege_game_over_3 = "\nThe record for now: "+ str(record)
@@ -165,7 +172,7 @@ while 1: #so the program will run forever
                 else:
                     if counter_group1 > record:
                         record = counter_group1
-                    avg_group1 = counter_group1/10
+                    avg_group1 = counter_group1/DURATION_TIME_PLAY
                     massege_game_over = "Game over! you played alone and you typed in "+str(counter_group1)+" characters.\nTyped in "+str(avg_group1)+" about every second!\nThe record for now: "+ str(record)
 
                 for i in range(0,count_conn): #send message with the result of the game and then end the connection
