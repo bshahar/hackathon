@@ -3,6 +3,8 @@ import struct
 import time
 import getch
 import threading
+from scapy.all import get_if_addr
+import ipaddress
 
 class bcolors:
     HEADER = '\033[95m'
@@ -15,18 +17,25 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-while 1:
+while 1: #choose network to run on s
     time.sleep(0.0001)
     state_network = input("plese enter 1 if you want eth1 or 2 for eth2\n")
     if state_network == '1': 
-        my_host = "172.1.0"
+        eth = get_if_addr("eth1") +"/16"
         break
     elif state_network == '2':
-        my_host = '172.99.255.255'
+        eth = get_if_addr("eth2")+"/16" 
         break
     else:
         time.sleep(0.0001)
         pass
+
+my_host_for_broadcast = str(ipaddress.ip_network(eth,False).broadcast_address) #get host broadcast
+
+MY_PORT = 13117
+DURATION_TIME_PLAY = 10
+BUFFER_SIZE = 2048
+FORMAT = '!IBH'
 
 while 1:#so the program will run forever
 
@@ -35,17 +44,17 @@ while 1:#so the program will run forever
         try:     
             client = socket(AF_INET, SOCK_DGRAM) # UDP
             client.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-            client.bind((my_host, 13117))
-            data, addr = client.recvfrom(2048)
+            client.bind((my_host_for_broadcast, MY_PORT))
+            data, addr = client.recvfrom(BUFFER_SIZE)
             client.close()
-            (cookie, mytype, port) = struct.unpack('!IBH', data) #get the port from the broadcast message
+            (cookie, mytype, port) = struct.unpack(FORMAT, data) #get the port from the broadcast message
             if cookie!=0xfeedbeef or mytype!=2:
                 raise Exception
             break
         except:
             time.sleep(1)
             pass    
-    print( bcolors.OKGREEN+"Received offer from " +  addr[0] + " attempting to connect..."+bcolors.ENDC)
+    print( bcolors.OKGREEN+"Received offer from " +  addr[0] + " attempting to connect..." + bcolors.ENDC)
 
     try:
         host = addr[0]
@@ -58,7 +67,7 @@ while 1:#so the program will run forever
         run_ = True
         def press_keys(socket_tcp): #this func send chars to the server
             try: 
-                ten_seconds = time.time() + 10
+                ten_seconds = time.time() + DURATION_TIME_PLAY
                 while time.time()<ten_seconds: 
                     ch = getch.getch().encode()
                     if run_:
@@ -66,7 +75,7 @@ while 1:#so the program will run forever
             except:
                 pass
 
-        data = tcpClient.recv(1024)
+        data = tcpClient.recv(BUFFER_SIZE)
         print(bcolors.OKCYAN+data.decode()+bcolors.ENDC)
 
         game_th = threading.Thread(target=press_keys, args=(tcpClient,)) #create thread for the game so just when the game start it will send chars
@@ -74,7 +83,7 @@ while 1:#so the program will run forever
         game_th.start()
         
         try:
-            game_over = tcpClient.recv(1024) #get a message about the result of the game
+            game_over = tcpClient.recv(BUFFER_SIZE) #get a message about the result of the game
             run_ = False
             game_th.join()
             print(bcolors.OKBLUE+game_over.decode()+bcolors.ENDC)
@@ -82,8 +91,8 @@ while 1:#so the program will run forever
             run_ = False
             game_th.join()
 
-        print(bcolors.WARNING+"server disconnected, listening for offer request..."+bcolors.ENDC)
+        print(bcolors.WARNING+"server disconnected, listening for offer request..." + bcolors.ENDC)
     except:
         time.sleep(1)
         pass
-   
+    
